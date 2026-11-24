@@ -6,12 +6,18 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      run_mutating_tests:
+        description: Run simulated checkout tests that create demo orders
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages
+  group: playwright-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -19,6 +25,8 @@ jobs:
     name: Validate framework
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      RUN_MUTATING_TESTS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_mutating_tests == 'true' }}
     outputs:
       has_results: ${{ steps.detect-results.outputs.has_results }}
     steps:
@@ -34,13 +42,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
       - name: Type-check framework
         run: npm run typecheck
 
-      - name: Run available tests
+      - name: Run tests
         run: npm run test:ci
 
       - name: Detect Allure results
@@ -92,7 +106,7 @@ jobs:
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Install dependencies
         run: npm ci
