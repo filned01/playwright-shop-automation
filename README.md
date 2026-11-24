@@ -12,8 +12,7 @@ This repository contains the initial Playwright test suite for the practice shop
 - API coverage for the Shop API, Users API, and authentication/utility endpoints
 - Web coverage for catalog browsing, search, cart, sign-in, and checkout flows
 - GitHub Actions validation on pushes and pull requests
-- Allure and HTML reporters configured for test runs
-- Automatic GitHub Pages publishing of Allure reports from `main` once test results exist
+- Playwright HTML reports available locally and as GitHub Actions artifacts
 - Test target can be overridden with `APP_BASE_URL` and `API_BASE_URL`
 
 The team-shared endpoint tables are documented in [docs/API_REFERENCE.md](docs/API_REFERENCE.md). The routes were checked against the configured practice host; confirm the host again if you point the suite at a different environment.
@@ -21,14 +20,14 @@ The team-shared endpoint tables are documented in [docs/API_REFERENCE.md](docs/A
 ## Project structure
 
 ```text
-.github/workflows/  CI validation and report publishing
+.github/workflows/  CI validation and report artifacts
 docs/               API reference and team plan
 tests/api/          API contract tests
 tests/fixtures/     Shared Playwright API fixture
 tests/web/          Browser end-to-end tests
 ```
 
-`node_modules/` is installed locally by `npm ci` and is ignored by Git. Playwright and Allure report folders are generated when tests run and are also ignored; they are outputs, not source folders.
+`node_modules/` is installed locally by `npm ci` and is ignored by Git. Playwright test results and HTML reports are generated when tests run and are also ignored; they are outputs, not source folders.
 
 ## Getting started
 
@@ -61,9 +60,7 @@ Remove-Item Env:RUN_MUTATING_TESTS
 
 Set `APP_BASE_URL` or `API_BASE_URL` in the shell or local `.env` to select a different target. Playwright loads a local `.env` when present. Never commit real credentials or environment files. Checkout tests use only the demo shop's published test cards; they must never use real payment details.
 
-On Windows PowerShell, if script execution blocks `npm.ps1`, run commands with `npm.cmd` (for example, `npm.cmd test`).
-
-Allure results are written to `allure-results/`; generate and open a report with `npm run allure:generate` and `npm run allure:open` (Java 17 or newer is required). After tests run on `main`, Actions deploys the report to GitHub Pages. This publishes reports, not the external practice shop.
+On Windows PowerShell, if script execution blocks `npm.ps1`, run commands with `npm.cmd` (for example, `npm.cmd test`). Open the latest local HTML report with `npx playwright show-report`.
 
 ## Team workflow
 

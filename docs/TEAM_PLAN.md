@@ -20,7 +20,7 @@
 6. Cover checkout validation and demo account/inbox journeys only after confirming safe test data and expected behavior.
 7. Add API scenarios per confirmed resource/endpoint group, each with independent data setup and cleanup.
 8. Add browser coverage, accessibility checks, and reliability improvements in separately scoped tasks.
-9. Complete Allure history/report publishing and review the CI workflow with the team.
+9. Review Playwright HTML report artifacts and the CI workflow with the team.
 10. Review requirement traceability, report gaps against the automation target, and prepare each demo.
 
 The list is a starting point for the team to refine in the morning meeting; each numbered item should be split further if it exceeds one day.
@@ -38,4 +38,4 @@ Once teammates join, publish a daily author-to-reviewer pairing in the meeting n
 
 ## Deployment
 
-The shop is an external practice application, not an app maintained in this repository. CI can run automation and publish Allure reports to GitHub Pages; deploying the shop itself requires a separate application and hosting target.
+The shop is an external practice application, not an app maintained in this repository. CI can run automation and retain HTML report artifacts; deploying the shop itself requires a separate application and hosting target.
