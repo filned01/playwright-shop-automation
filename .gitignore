@@ -1,0 +1,16 @@
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/allure-results/
+/allure-report/
+/coverage/
+/dist/
+/tsconfig.tsbuildinfo
+/playwright/.cache/
+/playwright/.auth/
+.env
+.env.*
+!.env.example
