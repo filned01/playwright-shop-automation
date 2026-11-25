@@ -22,6 +22,10 @@ test.describe("Users API", () => {
       expect(filteredBody.users.length).toBeGreaterThan(0);
       expect(filteredBody.users.every((user) => user.role === role)).toBe(true);
     }
+
+    const unsupportedRole = await api.get("/api/users?role=Owner");
+    expect(unsupportedRole.status()).toBe(200);
+    expect((await unsupportedRole.json()).users).toEqual([]);
   });
 
   test("returns users by numeric ID and rejects invalid or missing IDs", async ({
@@ -53,10 +57,22 @@ test.describe("Users API", () => {
       const createdBody = (await created.json()) as User;
       userId = createdBody.id;
       expect(Number.isInteger(userId)).toBe(true);
+      expect(created.headers().location).toBe(`/api/users/${userId}`);
 
       const fetched = await api.get(`/api/users/${userId}`);
       expect(fetched.status()).toBe(200);
       expect((await fetched.json()).firstName).toBe(createdUser.firstName);
+
+      const incompleteReplacement = await api.put(`/api/users/${userId}`, {
+        data: { firstName: "Incomplete" },
+      });
+      expect(incompleteReplacement.status()).toBe(400);
+      expect(await incompleteReplacement.json()).toMatchObject({
+        error: "lastName is required",
+      });
+      expect(
+        (await (await api.get(`/api/users/${userId}`)).json()).firstName,
+      ).toBe(createdUser.firstName);
 
       const replacement = {
         firstName: `PUT${nonce}`,
@@ -79,8 +95,17 @@ test.describe("Users API", () => {
         role: "Manager",
       });
 
+      const invalidPatch = await api.patch(`/api/users/${userId}`, {
+        data: { role: "Owner" },
+      });
+      expect(invalidPatch.status()).toBe(400);
+      expect(await invalidPatch.json()).toMatchObject({
+        error: "role must be one of: Admin, Manager, User",
+      });
+
       const deleted = await api.delete(`/api/users/${userId}`);
       expect(deleted.status()).toBe(204);
+      expect(await deleted.text()).toBe("");
       userId = undefined;
       expect((await api.get(`/api/users/${createdBody.id}`)).status()).toBe(
         404,
@@ -103,11 +128,17 @@ test.describe("Users API", () => {
       data: { firstName: "QA", lastName: "Automation" },
     });
     expect(missingFields.status()).toBe(400);
+    expect(await missingFields.json()).toMatchObject({
+      error: "role is required",
+    });
 
     const unsupportedRole = await api.post("/api/users", {
       data: { firstName: "QA", lastName: "Automation", role: "Owner" },
     });
     expect(unsupportedRole.status()).toBe(400);
+    expect(await unsupportedRole.json()).toMatchObject({
+      error: "role must be one of: Admin, Manager, User",
+    });
   });
 
   test("returns not found when updating or deleting an unknown user", async ({

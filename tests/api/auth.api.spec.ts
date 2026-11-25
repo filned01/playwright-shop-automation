@@ -7,6 +7,14 @@ test.describe("Authentication API", () => {
   }) => {
     expect((await api.get("/api/me")).status()).toBe(401);
 
+    const invalidToken = await api.get("/api/me", {
+      headers: { Authorization: "Bearer invalid-token" },
+    });
+    expect(invalidToken.status()).toBe(401);
+    expect(await invalidToken.json()).toMatchObject({
+      error: "Missing or invalid bearer token",
+    });
+
     const badLogin = await api.post("/api/auth/login", {
       data: {
         username: `unknown-${randomUUID()}`,

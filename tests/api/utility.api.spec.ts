@@ -17,6 +17,14 @@ test.describe("Utility APIs", () => {
       ),
     ).toBe(true);
 
+    const delayedProducts = await api.get(
+      "/api/products?search=keyboard&delay=1",
+    );
+    expect(delayedProducts.status()).toBe(200);
+    expect((await delayedProducts.json()).products).toEqual(
+      productBody.products,
+    );
+
     const noProducts = await api.get("/api/products?search=no-such-qa-product");
     expect(noProducts.status()).toBe(200);
     expect((await noProducts.json()).products).toHaveLength(0);
@@ -36,8 +44,32 @@ test.describe("Utility APIs", () => {
     expect(pageBody.total).toBeGreaterThanOrEqual(pageBody.employees.length);
     expect(pageBody.totalPages).toBeGreaterThan(0);
 
+    const filteredEmployees = await api.get(
+      "/api/employees?search=Engineering&pageSize=50",
+    );
+    expect(filteredEmployees.status()).toBe(200);
+    const filteredBody = (await filteredEmployees.json()) as {
+      employees: Array<{ department: string }>;
+      total: number;
+    };
+    expect(filteredBody.total).toBeGreaterThan(0);
+    expect(
+      filteredBody.employees.every(
+        (employee) => employee.department === "Engineering",
+      ),
+    ).toBe(true);
+
+    const noEmployees = await api.get(
+      "/api/employees?search=no-such-qa-employee",
+    );
+    expect(noEmployees.status()).toBe(200);
+    expect((await noEmployees.json()).employees).toEqual([]);
+
     expect((await api.get("/api/employees?pageSize=51")).status()).toBe(400);
     expect((await api.get("/api/employees?page=0")).status()).toBe(400);
+    expect((await api.get("/api/employees?page=not-a-number")).status()).toBe(
+      400,
+    );
   });
 
   test("returns notifications, city matches, and username availability", async ({
@@ -53,12 +85,26 @@ test.describe("Utility APIs", () => {
     expect(cityList).toContain("Toronto, Canada");
     expect(cityList.length).toBeLessThanOrEqual(8);
 
+    const delayedCities = await api.get("/api/cities?search=tor&delay=1");
+    expect(delayedCities.status()).toBe(200);
+    expect((await delayedCities.json()).cities).toContain("Toronto, Canada");
+
+    const noCities = await api.get("/api/cities?search=no-such-qa-city");
+    expect(noCities.status()).toBe(200);
+    expect((await noCities.json()).cities).toEqual([]);
+
     const username = `qa_${randomUUID().replace(/-/g, "").slice(0, 8)}`;
     const availability = await api.get(`/api/usernames/${username}`);
     expect(availability.status()).toBe(200);
     expect(await availability.json()).toMatchObject({
       username,
-      available: expect.any(Boolean),
+      available: true,
+    });
+    const takenUsername = await api.get("/api/usernames/TedBuckland");
+    expect(takenUsername.status()).toBe(200);
+    expect(await takenUsername.json()).toMatchObject({
+      username: "TedBuckland",
+      available: false,
     });
     expect((await api.get("/api/usernames/x")).status()).toBe(400);
   });
@@ -71,10 +117,39 @@ test.describe("Utility APIs", () => {
     expect(valid.status()).toBe(201);
     expect(await valid.json()).toMatchObject({ email, age: 30 });
 
+    for (const age of [18, 100]) {
+      const boundary = await api.post("/api/register", {
+        data: { email: `qa-${randomUUID()}@example.test`, age },
+      });
+      expect(boundary.status()).toBe(201);
+      expect((await boundary.json()).age).toBe(age);
+    }
+
+    const missingEmail = await api.post("/api/register", {
+      data: { age: 30 },
+    });
+    expect(missingEmail.status()).toBe(400);
+    expect(await missingEmail.json()).toMatchObject({
+      error: "email must be a valid email address",
+    });
+
     const invalid = await api.post("/api/register", {
-      data: { email: "not-an-email", age: -1 },
+      data: { email: "not-an-email", age: 30 },
     });
     expect(invalid.status()).toBe(400);
+    expect(await invalid.json()).toMatchObject({
+      error: "email must be a valid email address",
+    });
+
+    for (const age of [17, 101, 30.5]) {
+      const invalidAge = await api.post("/api/register", {
+        data: { email: `qa-${randomUUID()}@example.test`, age },
+      });
+      expect(invalidAge.status()).toBe(400);
+      expect(await invalidAge.json()).toMatchObject({
+        error: "age must be an integer between 18 and 100",
+      });
+    }
 
     const taken = await api.post("/api/register", {
       data: { email: "taken@example.com", age: 30 },
@@ -106,6 +181,19 @@ test.describe("Utility APIs", () => {
     });
     expect(uploadBody.totalBytes).toBeGreaterThan(0);
 
+    const exactLimit = await api.post("/api/upload", {
+      multipart: {
+        files: {
+          name: "exact-limit.bin",
+          mimeType: "application/octet-stream",
+          buffer: Buffer.alloc(2 * 1024 * 1024),
+        },
+      },
+      timeout: 30000,
+    });
+    expect(exactLimit.status()).toBe(200);
+    expect((await exactLimit.json()).totalBytes).toBe(2 * 1024 * 1024);
+
     const empty = await api.post("/api/upload");
     expect(empty.status()).toBe(400);
 
@@ -134,11 +222,42 @@ test.describe("Utility APIs", () => {
   test("rejects incorrect checkout totals and includes a request ID", async ({
     api,
   }) => {
-    const response = await api.post("/api/checkout/pay", {
+    const missingTotal = await api.post("/api/checkout/pay", { data: {} });
+    expect(missingTotal.status()).toBe(400);
+    expect(await missingTotal.json()).toMatchObject({
+      code: "INVALID_TOTAL",
+      error: "total must be a number",
+    });
+    expect(missingTotal.headers()["x-request-id"]).toBeTruthy();
+
+    const nonNumeric = await api.post("/api/checkout/pay", {
+      data: { total: "not-a-number" },
+    });
+    expect(nonNumeric.status()).toBe(400);
+    expect(await nonNumeric.json()).toMatchObject({
+      code: "INVALID_TOTAL",
+      error: "total must be a number",
+    });
+    expect(nonNumeric.headers()["x-request-id"]).toBeTruthy();
+
+    const mismatchedTotal = await api.post("/api/checkout/pay", {
       data: { total: 0 },
     });
-    expect([400, 422]).toContain(response.status());
-    expect(response.headers()["x-request-id"]).toBeTruthy();
+    expect(mismatchedTotal.status()).toBe(422);
+    expect(await mismatchedTotal.json()).toMatchObject({
+      code: "TOTAL_MISMATCH",
+      error: "Total does not match the order",
+    });
+    expect(mismatchedTotal.headers()["x-request-id"]).toBeTruthy();
+
+    const fractionalTotal = await api.post("/api/checkout/pay", {
+      data: { total: 1.5 },
+    });
+    expect(fractionalTotal.status()).toBe(422);
+    expect(await fractionalTotal.json()).toMatchObject({
+      code: "TOTAL_MISMATCH",
+    });
+    expect(fractionalTotal.headers()["x-request-id"]).toBeTruthy();
   });
 
   test("[@mutating] creates a simulated test payment", async ({ api }) => {
@@ -183,7 +302,9 @@ test.describe("Utility APIs", () => {
   test("returns the requested status and rejects status values outside the range", async ({
     api,
   }) => {
+    expect((await api.get("/api/status/200")).status()).toBe(200);
     expect((await api.get("/api/status/418")).status()).toBe(418);
+    expect((await api.get("/api/status/599")).status()).toBe(599);
     expect((await api.get("/api/status/199")).status()).toBe(400);
     expect((await api.get("/api/status/600")).status()).toBe(400);
     expect((await api.get("/api/status/not-a-number")).status()).toBe(400);

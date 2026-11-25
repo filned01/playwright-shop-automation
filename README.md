@@ -48,7 +48,7 @@ npm run lint
 npm run format:check
 ```
 
-`npm run test:web` runs the web suite in Chromium, Firefox, and WebKit; use `npm run test:web:chromium` for a quicker single-browser run. API tests create and clean up a uniquely named user. Tests that create simulated orders are skipped by default; enable them locally with `RUN_MUTATING_TESTS=true` or select the option when manually starting the GitHub Actions workflow. The optional `/api/reset` test is skipped unless `RUN_RESET_API_TEST=true` is set.
+`npm run test:web` runs the web suite in Chromium, Firefox, and WebKit; use `npm run test:web:chromium` for a quicker single-browser run. API tests create and clean up a uniquely named user. Order-creating tests, including the API-to-UI order-history check, are skipped by default; enable them locally with `RUN_MUTATING_TESTS=true` or select the option when manually starting the GitHub Actions workflow. The Orders API lifecycle test also registers a uniquely named Shop account to verify order ownership; that account and its data persist until the demo resets after an hour without activity. Most opt-in order tests cancel their orders; one waits for shipment to verify that shipped orders cannot be cancelled and leaves that simulated order in the demo. Demo data is private per visitor. The optional `/api/reset` test is skipped unless `RUN_RESET_API_TEST=true` is set.
 
 In PowerShell, opt into simulated-order tests with:
 
@@ -59,6 +59,8 @@ Remove-Item Env:RUN_MUTATING_TESTS
 ```
 
 Set `APP_BASE_URL` or `API_BASE_URL` in the shell or local `.env` to select a different target. Playwright loads a local `.env` when present. Never commit real credentials or environment files. Checkout tests use only the demo shop's published test cards; they must never use real payment details.
+
+On Windows, `tools/install-daily-git-sync.ps1` installs a local Task Scheduler job that runs daily at 4:00 PM computer time. It runs lint, typecheck, and the routine Playwright suite before staging all repository changes, committing, and pushing to the current tracked `origin` branch. It skips when there are no changes, and stops on failed checks, branch divergence, or sensitive-looking filenames. The job runs under your interactive account, so you need to be signed in; if the laptop sleeps through the scheduled time, it starts when available after wake. Logs are written under `%LOCALAPPDATA%\PlaywrightShopDailyCommit\logs`. Remove the task with `Unregister-ScheduledTask -TaskName PlaywrightShopDailyCommit`.
 
 On Windows PowerShell, if script execution blocks `npm.ps1`, run commands with `npm.cmd` (for example, `npm.cmd test`). Open the latest local HTML report with `npx playwright show-report`.
 

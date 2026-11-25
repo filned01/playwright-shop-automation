@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       run_mutating_tests:
-        description: Run simulated checkout tests that create demo orders
+        description: Run tests that create demo accounts or orders (may leave shipped orders)
         required: false
         default: false
         type: boolean
