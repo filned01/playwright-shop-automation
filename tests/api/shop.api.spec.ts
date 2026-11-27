@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "../fixtures/api";
+import { PROMO_CODES } from "../constants";
 
 type ShopProduct = {
   slug: string;
@@ -669,11 +670,11 @@ test.describe("Shop API", () => {
 
       const minimumSpendPromo = await api.post("/api/shop/cart/promo", {
         headers,
-        data: { code: "WELCOME20" },
+        data: { code: PROMO_CODES.welcome20 },
       });
       expect(minimumSpendPromo.status()).toBe(200);
       expect(await minimumSpendPromo.json()).toMatchObject({
-        promo: "WELCOME20",
+        promo: PROMO_CODES.welcome20,
         promoWarning: "WELCOME20 needs a minimum spend of $200.00.",
         subtotalCents: 19900,
         discountCents: 0,
@@ -686,7 +687,7 @@ test.describe("Shop API", () => {
       });
       expect(secondItem.status()).toBe(201);
       expect(await secondItem.json()).toMatchObject({
-        promo: "WELCOME20",
+        promo: PROMO_CODES.welcome20,
         subtotalCents: 39800,
         discountCents: 2000,
         totalCents: 37800,
@@ -694,11 +695,11 @@ test.describe("Shop API", () => {
 
       const replacementPromo = await api.post("/api/shop/cart/promo", {
         headers,
-        data: { code: "SAVE10" },
+        data: { code: PROMO_CODES.save10 },
       });
       expect(replacementPromo.status()).toBe(200);
       expect(await replacementPromo.json()).toMatchObject({
-        promo: "SAVE10",
+        promo: PROMO_CODES.save10,
         subtotalCents: 39800,
         discountCents: 3980,
         totalCents: 35820,
@@ -741,11 +742,11 @@ test.describe("Shop API", () => {
 
       const freeShipping = await api.post("/api/shop/cart/promo", {
         headers,
-        data: { code: "FREESHIP" },
+        data: { code: PROMO_CODES.freeShip },
       });
       expect(freeShipping.status()).toBe(200);
       expect(await freeShipping.json()).toMatchObject({
-        promo: "FREESHIP",
+        promo: PROMO_CODES.freeShip,
         discountCents: 0,
       });
 
@@ -757,7 +758,7 @@ test.describe("Shop API", () => {
 
       const expiredPromo = await api.post("/api/shop/cart/promo", {
         headers,
-        data: { code: "SUMMER25" },
+        data: { code: PROMO_CODES.expired },
       });
       expect(expiredPromo.status()).toBe(410);
       expect(await expiredPromo.json()).toMatchObject({

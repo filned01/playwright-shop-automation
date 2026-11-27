@@ -48,6 +48,11 @@ npm run lint
 npm run format:check
 ```
 
+Coverage includes catalog browsing, search, cart and promo operations,
+demo account flows, order/payment edge cases, API networking, and browser
+context isolation. The more detailed requirement map is in
+[docs/TEST_COVERAGE.md](docs/TEST_COVERAGE.md).
+
 `npm run test:web` runs the web suite in Chromium, Firefox, and WebKit; use `npm run test:web:chromium` for a quicker single-browser run. API tests create and clean up a uniquely named user. Order-creating tests, including the API-to-UI order-history check, are skipped by default; enable them locally with `RUN_MUTATING_TESTS=true` or select the option when manually starting the GitHub Actions workflow. The Orders API lifecycle test also registers a uniquely named Shop account to verify order ownership; that account and its data persist until the demo resets after an hour without activity. Most opt-in order tests cancel their orders; one waits for shipment to verify that shipped orders cannot be cancelled and leaves that simulated order in the demo. Demo data is private per visitor. The optional `/api/reset` test is skipped unless `RUN_RESET_API_TEST=true` is set.
 
 In PowerShell, opt into simulated-order tests with:

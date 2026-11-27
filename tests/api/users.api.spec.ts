@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import * as ts from "typescript";
 import { expect, test } from "../fixtures/api";
 
 type User = {
@@ -8,6 +11,30 @@ type User = {
   role: "Admin" | "Manager" | "User";
 };
 
+type UsersFixture = {
+  supportedRoles: Array<"Admin" | "Manager" | "User">;
+  created: Omit<User, "id">;
+  replacement: Omit<User, "id">;
+  missingLastName: { firstName: string };
+  unsupported: {
+    firstName: string;
+    lastName: string;
+    role: "Owner";
+  };
+};
+
+const usersFixturePath = join(process.cwd(), "tests", "data", "users.jsonc");
+const parsedUsersFixture = ts.parseConfigFileTextToJson(
+  usersFixturePath,
+  readFileSync(usersFixturePath, "utf8"),
+);
+if (parsedUsersFixture.error) {
+  throw new Error(
+    ts.flattenDiagnosticMessageText(parsedUsersFixture.error.messageText, "\n"),
+  );
+}
+const usersFixture = parsedUsersFixture.config as UsersFixture;
+
 test.describe("Users API", () => {
   test("lists users and filters by supported role", async ({ api }) => {
     const response = await api.get("/api/users");
@@ -15,7 +42,7 @@ test.describe("Users API", () => {
     const body = (await response.json()) as { users: User[] };
     expect(body.users.length).toBeGreaterThan(0);
 
-    for (const role of ["Admin", "Manager", "User"] as const) {
+    for (const role of usersFixture.supportedRoles) {
       const filtered = await api.get(`/api/users?role=${role}`);
       expect(filtered.status()).toBe(200);
       const filteredBody = (await filtered.json()) as { users: User[] };
@@ -44,9 +71,9 @@ test.describe("Users API", () => {
   }) => {
     const nonce = randomUUID().replace(/-/g, "").slice(0, 10);
     const createdUser = {
-      firstName: `QA${nonce}`,
-      lastName: "Automation",
-      role: "User",
+      firstName: `${usersFixture.created.firstName}${nonce}`,
+      lastName: usersFixture.created.lastName,
+      role: usersFixture.created.role,
     };
     let userId: number | undefined;
 
@@ -64,7 +91,7 @@ test.describe("Users API", () => {
       expect((await fetched.json()).firstName).toBe(createdUser.firstName);
 
       const incompleteReplacement = await api.put(`/api/users/${userId}`, {
-        data: { firstName: "Incomplete" },
+        data: usersFixture.missingLastName,
       });
       expect(incompleteReplacement.status()).toBe(400);
       expect(await incompleteReplacement.json()).toMatchObject({
@@ -75,9 +102,9 @@ test.describe("Users API", () => {
       ).toBe(createdUser.firstName);
 
       const replacement = {
-        firstName: `PUT${nonce}`,
-        lastName: "Replaced",
-        role: "Manager",
+        firstName: `${usersFixture.replacement.firstName}${nonce}`,
+        lastName: usersFixture.replacement.lastName,
+        role: usersFixture.replacement.role,
       };
       const replaced = await api.put(`/api/users/${userId}`, {
         data: replacement,
@@ -92,7 +119,7 @@ test.describe("Users API", () => {
       expect(await patched.json()).toMatchObject({
         firstName: replacement.firstName,
         lastName: "Patched",
-        role: "Manager",
+        role: replacement.role,
       });
 
       const invalidPatch = await api.patch(`/api/users/${userId}`, {
@@ -133,7 +160,7 @@ test.describe("Users API", () => {
     });
 
     const unsupportedRole = await api.post("/api/users", {
-      data: { firstName: "QA", lastName: "Automation", role: "Owner" },
+      data: usersFixture.unsupported,
     });
     expect(unsupportedRole.status()).toBe(400);
     expect(await unsupportedRole.json()).toMatchObject({

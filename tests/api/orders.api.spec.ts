@@ -1,19 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
-import { expect, test } from "../fixtures/api";
 import {
-  ORDER_DELIVERY_OPTIONS,
-  SHOP_DEMO_ACCOUNT,
-  TEST_CARDS,
-} from "../constants";
+  expect,
+  test,
+  type ShopApiHeaders,
+  type ShopHeadersFactory,
+} from "../fixtures/api";
+import { ORDER_DELIVERY_OPTIONS, TEST_CARDS } from "../constants";
 import { InboxApi } from "./inbox-api";
 import { OrdersApi } from "./orders-api";
 import { buildOrderPayload } from "./order-payload";
 
-type OrderHeaders = {
-  Authorization: string;
-  "X-Shop-Cart": string;
-};
+type OrderHeaders = ShopApiHeaders;
 
 type PaymentFailure = {
   name: string;
@@ -22,26 +20,6 @@ type PaymentFailure = {
   code: string;
   error: string;
 };
-
-function cartHeaders(cartId = `qa-${randomUUID()}`) {
-  return { "X-Shop-Cart": cartId };
-}
-
-async function loginHeaders(
-  api: APIRequestContext,
-  cartId?: string,
-): Promise<OrderHeaders> {
-  const login = await api.post("/api/shop/login", {
-    data: SHOP_DEMO_ACCOUNT,
-  });
-  expect(login.status()).toBe(200);
-  const { token } = (await login.json()) as { token: string };
-
-  return {
-    ...cartHeaders(cartId),
-    Authorization: `Bearer ${token}`,
-  };
-}
 
 async function addItemToCart(api: APIRequestContext, headers: OrderHeaders) {
   const added = await api.post("/api/shop/cart/items", {
@@ -96,8 +74,9 @@ async function cancelIfProcessing(
 async function expectPaymentFailure(
   api: APIRequestContext,
   failure: PaymentFailure,
+  shopHeaders: ShopHeadersFactory,
 ) {
-  const headers = await loginHeaders(api);
+  const headers = await shopHeaders();
   const email = `qa-${randomUUID()}@example.test`;
   const orders = new OrdersApi(api);
   await addItemToCart(api, headers);
@@ -180,6 +159,7 @@ const failedPayments: PaymentFailure[] = [
 test.describe("Orders API", () => {
   test("requires a valid token to list orders and rejects unsupported methods", async ({
     api,
+    shopHeaders,
   }) => {
     const missingToken = await api.get("/api/shop/orders");
     expect(missingToken.status()).toBe(401);
@@ -192,7 +172,7 @@ test.describe("Orders API", () => {
     });
     expect(invalidToken.status()).toBe(401);
 
-    const headers = await loginHeaders(api);
+    const headers = await shopHeaders();
     const wrongMethod = await api.put("/api/shop/orders", {
       headers,
       data: {},
@@ -205,8 +185,9 @@ test.describe("Orders API", () => {
 
   test("returns not found for unknown order reads and cancellations", async ({
     api,
+    shopHeaders,
   }) => {
-    const headers = await loginHeaders(api);
+    const headers = await shopHeaders();
 
     const missingOrder = await api.get("/api/shop/orders/no-such-qa-order", {
       headers,
@@ -222,8 +203,9 @@ test.describe("Orders API", () => {
 
   test("rejects missing cart, empty cart, and invalid order details", async ({
     api,
+    shopHeaders,
   }) => {
-    const headers = await loginHeaders(api);
+    const headers = await shopHeaders();
     const missingCart = await api.post("/api/shop/orders", {
       headers: { Authorization: headers.Authorization },
       data: buildOrderPayload(`qa-${randomUUID()}@example.test`),
@@ -234,7 +216,7 @@ test.describe("Orders API", () => {
         "The X-Shop-Cart header is required (8–64 letters, digits, - or _)",
     });
 
-    const emptyCartHeaders = await loginHeaders(api);
+    const emptyCartHeaders = await shopHeaders();
     const emptyCart = await api.post("/api/shop/orders", {
       headers: emptyCartHeaders,
       data: buildOrderPayload(`qa-${randomUUID()}@example.test`),
@@ -245,7 +227,7 @@ test.describe("Orders API", () => {
       error: "Your cart is empty.",
     });
 
-    const invalidHeaders = await loginHeaders(api);
+    const invalidHeaders = await shopHeaders();
     await addItemToCart(api, invalidHeaders);
 
     const emptyBody = await api.post("/api/shop/orders", {
@@ -349,9 +331,10 @@ test.describe("Orders API", () => {
 
   test("accepts each documented delivery choice before payment", async ({
     api,
+    shopHeaders,
   }) => {
     for (const delivery of ORDER_DELIVERY_OPTIONS) {
-      const headers = await loginHeaders(api);
+      const headers = await shopHeaders();
       const email = `qa-${randomUUID()}@example.test`;
       await addItemToCart(api, headers);
       const data = buildOrderPayload(email, {
@@ -376,15 +359,17 @@ test.describe("Orders API", () => {
     // eslint-disable-next-line playwright/expect-expect
     test(`rejects ${failure.name} without creating an order`, async ({
       api,
+      shopHeaders,
     }) => {
-      await expectPaymentFailure(api, failure);
+      await expectPaymentFailure(api, failure, shopHeaders);
     });
   }
 
   test("requires 3-D Secure approval and rejects a declined authentication", async ({
     api,
+    shopHeaders,
   }) => {
-    const headers = await loginHeaders(api);
+    const headers = await shopHeaders();
     const email = `qa-${randomUUID()}@example.test`;
     await addItemToCart(api, headers);
     const payload = buildOrderPayload(email, {
@@ -419,6 +404,7 @@ test.describe("Orders API", () => {
 
   test("[@mutating] creates, lists, reads, cancels, and emails an order", async ({
     api,
+    shopHeaders,
   }) => {
     // Order creation changes the shared demo; routine runs must remain read-only.
     // eslint-disable-next-line playwright/no-skipped-test
@@ -427,7 +413,7 @@ test.describe("Orders API", () => {
       "Creates a Shop test account and simulated order; set RUN_MUTATING_TESTS=true to run.",
     );
 
-    const headers = await loginHeaders(api);
+    const headers = await shopHeaders();
     const email = `qa-${randomUUID()}@example.test`;
     await addItemToCart(api, headers);
 
@@ -562,6 +548,7 @@ test.describe("Orders API", () => {
 
   test("[@mutating] approves a 3-D Secure payment and cancels the order", async ({
     api,
+    shopHeaders,
   }) => {
     // A successful payment creates a simulated order in the shared demo.
     // eslint-disable-next-line playwright/no-skipped-test
@@ -570,7 +557,7 @@ test.describe("Orders API", () => {
       "Creates a simulated order; set RUN_MUTATING_TESTS=true to run.",
     );
 
-    const headers = await loginHeaders(api);
+    const headers = await shopHeaders();
     const email = `qa-${randomUUID()}@example.test`;
     await addItemToCart(api, headers);
 
@@ -614,6 +601,7 @@ test.describe("Orders API", () => {
 
   test("[@mutating] rejects cancellation after an order ships", async ({
     api,
+    shopHeaders,
   }) => {
     // This order becomes Shipped automatically and cannot be cancelled afterward.
     // eslint-disable-next-line playwright/no-skipped-test
@@ -623,7 +611,7 @@ test.describe("Orders API", () => {
     );
     test.setTimeout(45_000);
 
-    const headers = await loginHeaders(api);
+    const headers = await shopHeaders();
     const email = `qa-${randomUUID()}@example.test`;
     await addItemToCart(api, headers);
 

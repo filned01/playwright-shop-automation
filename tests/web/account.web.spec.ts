@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../fixtures/api";
 import { SHOP_DEMO_ACCOUNT, TEST_CARDS } from "../constants";
 import { buildOrderPayload } from "../api/order-payload";
 
@@ -23,6 +23,7 @@ test.describe("Shop account", () => {
 
   test("[@mutating] shows an API-created order in the signed-in order history", async ({
     page,
+    shopHeaders,
   }) => {
     // Order creation mutates shared demo data, so keep this opt-in.
     // eslint-disable-next-line playwright/no-skipped-test
@@ -39,15 +40,7 @@ test.describe("Shop account", () => {
 
     const api = page.context().request;
     const apiUrl = (path: string) => new URL(path, page.url()).toString();
-    const login = await api.post(apiUrl("/api/shop/login"), {
-      data: SHOP_DEMO_ACCOUNT,
-    });
-    expect(login.status()).toBe(200);
-    const { token } = (await login.json()) as { token: string };
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      "X-Shop-Cart": `qa-${randomUUID()}`,
-    };
+    const headers = await shopHeaders();
 
     let orderId: string | undefined;
     try {

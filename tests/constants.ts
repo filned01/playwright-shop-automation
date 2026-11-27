@@ -5,6 +5,8 @@ export const SHOP_DEMO_ACCOUNT = {
 
 export const TEST_CARDS = {
   success: "4111 1111 1111 1111",
+  success4242: "4242 4242 4242 4242",
+  success5555: "5555 5555 5555 4444",
   declined: "4000 0000 0000 0002",
   insufficientFunds: "4000 0000 0000 9995",
   expired: "4000 0000 0000 0069",
@@ -19,6 +21,13 @@ export const ORDER_DELIVERY_OPTIONS = [
   "express",
   "pickup",
 ] as const;
+
+export const PROMO_CODES = {
+  welcome20: "WELCOME20",
+  save10: "SAVE10",
+  freeShip: "FREESHIP",
+  expired: "SUMMER25",
+} as const;
 
 export const ORDER_ADDRESS = {
   fullName: "QA Automation",

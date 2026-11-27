@@ -1,0 +1,23 @@
+{
+  "supportedRoles": ["Admin", "Manager", "User"],
+  "created": {
+    "firstName": "QA",
+    "lastName": "Automation",
+    // Choose Admin, Manager, or User for the role assigned when the test creates this user.
+    "role": "User",
+  },
+  "replacement": {
+    "firstName": "PUT",
+    "lastName": "Replaced",
+    // Choose Admin, Manager, or User for the role after the test replaces this user.
+    "role": "Manager",
+  },
+  "missingLastName": {
+    "firstName": "Incomplete",
+  },
+  "unsupported": {
+    "firstName": "QA",
+    "lastName": "Automation",
+    "role": "Owner",
+  },
+}
